@@ -17,6 +17,7 @@ uint32_t microsAtual;
 uint32_t millisAtual;
 uint32_t leituraX;
 uint32_t leituraY;
+int pausado = 0;
 int filaEnvios[20];
 int index = 0;
 #define UART_FR_TXFF            0x00000020          // UART Transmit FIFO Full
@@ -103,37 +104,38 @@ int main(void)
     {
         if ((getMillis() - tempoAtual) > 50)
         {
-
-            for (i = 0; i < 20; i++)
+            if (pausado != 1)
             {
-                if (filaEnvios[i] > 0)
+                for (i = 0; i < 20; i++)
                 {
-                    escreverUART0(filaEnvios[i]);
+                    if (filaEnvios[i] > 0)
+                    {
+                        escreverUART0(filaEnvios[i]);
+                    }
+                }
+                leituraX = ADC0_SSFIFO0_R;
+                leituraY = ADC1_SSFIFO0_R;
+
+                if (leituraX < 1500)
+                {
+
+                    escreverUART0(60); // < (60)
+                }
+                else if (leituraX > 2400)
+                {
+                    escreverUART0(62); // > (62)
+                }
+
+                if (leituraY < 1500)
+                {
+
+                    escreverUART0(95); // _ (95)
+                }
+                else if (leituraY > 2400)
+                {
+                    escreverUART0(94); // ^ (94)
                 }
             }
-            leituraX = ADC0_SSFIFO0_R;
-            leituraY = ADC1_SSFIFO0_R;
-
-            if (leituraX < 1500)
-            {
-
-                escreverUART0(60); // < (60)
-            }
-            else if (leituraX > 2400)
-            {
-                escreverUART0(62); // > (62)
-            }
-
-            if (leituraY < 1500)
-            {
-
-                escreverUART0(95); // _ (95)
-            }
-            else if (leituraY > 2400)
-            {
-                escreverUART0(94); // ^ (94)
-            }
-
             tempoAtual = getMillis();
             memset(filaEnvios, 0, sizeof(filaEnvios));
             index = 0;
@@ -202,7 +204,28 @@ void trataPortC()
     if (lerBit(&GPIO_PORTC_RIS_R, 5))
     {
         setarBit(&GPIO_PORTC_ICR_R, 5, 1);
-        filaEnvios[index] = 43; // + (43)
+        if (pausado == 0)
+        {
+            escreverUART0(32);
+            escreverUART0(83);
+            escreverUART0(116);
+            escreverUART0(111);
+            escreverUART0(112);
+            escreverUART0(32);
+
+            pausado = 1;
+        }
+        else
+        {
+            escreverUART0(32);
+            escreverUART0(83);
+            escreverUART0(116);
+            escreverUART0(97);
+            escreverUART0(114);
+            escreverUART0(116);
+            escreverUART0(32);
+            pausado = 0;
+        }
         index++;
     }
     if (lerBit(&GPIO_PORTC_RIS_R, 6))
