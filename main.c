@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 void trataST(void);
 void trataPortA(void);
@@ -16,6 +17,8 @@ uint32_t microsAtual;
 uint32_t millisAtual;
 uint32_t leituraX;
 uint32_t leituraY;
+int filaEnvios[20];
+int index = 0;
 #define UART_FR_TXFF            0x00000020          // UART Transmit FIFO Full
 #define UART_FR_RXFE            0x00000010
 void setup()
@@ -48,6 +51,9 @@ void setup()
                           &GPIO_PORTA_IBE_R, &GPIO_PORTA_IM_R, 4, 0, 1, 0);
 
     configurarInterrupcao(&GPIO_PORTB_IS_R, &GPIO_PORTB_IEV_R,
+                          &GPIO_PORTB_IBE_R, &GPIO_PORTB_IM_R, 2, 0, 1, 1);
+
+    configurarInterrupcao(&GPIO_PORTB_IS_R, &GPIO_PORTB_IEV_R,
                           &GPIO_PORTB_IBE_R, &GPIO_PORTB_IM_R, 3, 0, 1, 1);
 
     configurarInterrupcao(&GPIO_PORTC_IS_R, &GPIO_PORTC_IEV_R,
@@ -65,9 +71,6 @@ void setup()
     configurarInterrupcao(&GPIO_PORTD_IS_R, &GPIO_PORTD_IEV_R,
                           &GPIO_PORTD_IBE_R, &GPIO_PORTD_IM_R, 6, 0, 1, 3);
 
-    configurarInterrupcao(&GPIO_PORTD_IS_R, &GPIO_PORTD_IEV_R,
-                          &GPIO_PORTD_IBE_R, &GPIO_PORTD_IM_R, 7, 0, 1, 3);
-
     configurarInterrupcao(&GPIO_PORTF_IS_R, &GPIO_PORTF_IEV_R,
                           &GPIO_PORTF_IBE_R, &GPIO_PORTF_IM_R, 4, 0, 1, 30);
 
@@ -75,13 +78,14 @@ void setup()
     configurarPino(&GPIO_PORTA_DIR_R, &GPIO_PORTA_DEN_R, 2, INPUT);
     configurarPino(&GPIO_PORTA_DIR_R, &GPIO_PORTA_DEN_R, 3, INPUT);
     configurarPino(&GPIO_PORTA_DIR_R, &GPIO_PORTA_DEN_R, 4, INPUT);
+    configurarPino(&GPIO_PORTB_DIR_R, &GPIO_PORTB_DEN_R, 2, INPUT);
     configurarPino(&GPIO_PORTB_DIR_R, &GPIO_PORTB_DEN_R, 3, INPUT);
     configurarPino(&GPIO_PORTC_DIR_R, &GPIO_PORTC_DEN_R, 4, INPUT);
     configurarPino(&GPIO_PORTC_DIR_R, &GPIO_PORTC_DEN_R, 5, INPUT);
     configurarPino(&GPIO_PORTC_DIR_R, &GPIO_PORTC_DEN_R, 6, INPUT);
     configurarPino(&GPIO_PORTC_DIR_R, &GPIO_PORTC_DEN_R, 7, INPUT);
     configurarPino(&GPIO_PORTD_DIR_R, &GPIO_PORTD_DEN_R, 6, INPUT);
-    configurarPino(&GPIO_PORTD_DIR_R, &GPIO_PORTD_DEN_R, 7, INPUT);
+
     configurarPino(&GPIO_PORTF_DIR_R, &GPIO_PORTF_DEN_R, 4, INPUT);
 
     configurarUART0(0x01, &GPIO_PORTA_AFSEL_R, &GPIO_PORTA_PCTL_R, 8, 44, 0x70,
@@ -92,10 +96,48 @@ void setup()
 int main(void)
 {
     setup();
+    uint32_t tempoAtual;
+    int filaEnviosAux[20] = { };
+    int i = 0;
     while (1)
     {
-        leituraX = ADC0_SSFIFO0_R;
-        leituraY = ADC1_SSFIFO0_R;
+        if ((getMillis() - tempoAtual) > 50)
+        {
+
+            for (i = 0; i < 20; i++)
+            {
+                if (filaEnvios[i] > 0)
+                {
+                    escreverUART0(filaEnvios[i]);
+                }
+            }
+            leituraX = ADC0_SSFIFO0_R;
+            leituraY = ADC1_SSFIFO0_R;
+
+            if (leituraX < 1500)
+            {
+
+                escreverUART0(60); // < (60)
+            }
+            else if (leituraX > 2400)
+            {
+                escreverUART0(62); // > (62)
+            }
+
+            if (leituraY < 1500)
+            {
+
+                escreverUART0(95); // _ (95)
+            }
+            else if (leituraY > 2400)
+            {
+                escreverUART0(94); // ^ (94)
+            }
+
+            tempoAtual = getMillis();
+            memset(filaEnvios, 0, sizeof(filaEnvios));
+            index = 0;
+        }
     }
 }
 
@@ -115,78 +157,92 @@ void trataPortA()
     if (lerBit(&GPIO_PORTA_RIS_R, 2)) //Verificação de qual pino gerou a inten
     {
         setarBit(&GPIO_PORTA_ICR_R, 2, 1); //Limpa flag de int do pino que gerou a inten
-        escreverUART0(79); // O (79)
+        filaEnvios[index] = 79; // O (79)
+        index++;
     }
     if (lerBit(&GPIO_PORTA_RIS_R, 3))
     {
         setarBit(&GPIO_PORTA_ICR_R, 3, 1);
-        escreverUART0(60); // < (60)
+        filaEnvios[index] = 60; // < (60)
+        index++;
     }
     if (lerBit(&GPIO_PORTA_RIS_R, 4))
     {
         setarBit(&GPIO_PORTA_ICR_R, 4, 1);
-        escreverUART0(62); // > (62)
+        filaEnvios[index] = 62; // > (62)
+        index++;
+
     }
 }
-;
+
 void trataPortB()
 {
     if (lerBit(&GPIO_PORTB_RIS_R, 3))
     {
         setarBit(&GPIO_PORTB_ICR_R, 3, 1);
         escreverUART0(36); // $(36)
+        index++;
+    }
+    if (lerBit(&GPIO_PORTB_RIS_R, 2))
+    {
+        setarBit(&GPIO_PORTB_ICR_R, 2, 1);
+        filaEnvios[index] = 95;  // _ (95)
+        index++;
     }
 }
-;
+
 void trataPortC()
 {
     if (lerBit(&GPIO_PORTC_RIS_R, 4)) //Verificação de qual pino gerou a inten
     {
         setarBit(&GPIO_PORTC_ICR_R, 4, 1); //Limpa flag de int do pino que gerou a inten
-        escreverUART0(45); // - (45)
+        filaEnvios[index] = 45; // - (45)
+        index++;
     }
     if (lerBit(&GPIO_PORTC_RIS_R, 5))
     {
         setarBit(&GPIO_PORTC_ICR_R, 5, 1);
-        escreverUART0(43); // + (43)
+        filaEnvios[index] = 43; // + (43)
+        index++;
     }
     if (lerBit(&GPIO_PORTC_RIS_R, 6))
     {
         setarBit(&GPIO_PORTC_ICR_R, 6, 1);
-        escreverUART0(47); // /\ (47 e 92)
-        escreverUART0(92);
+        filaEnvios[index] = 47; // /\ (47 e 92)
+        index++;
+        filaEnvios[index] = 92;
+        index++;
     }
     if (lerBit(&GPIO_PORTC_RIS_R, 7))
     {
         setarBit(&GPIO_PORTC_ICR_R, 7, 1);
-        escreverUART0(35); // # (35)
+        filaEnvios[index] = 35; // # (35)
+        index++;
     }
 }
-;
+
 void trataPortD()
 {
-    if (lerBit(&GPIO_PORTD_RIS_R, 3))
+    if (lerBit(&GPIO_PORTD_RIS_R, 6))
     {
-        setarBit(&GPIO_PORTD_ICR_R, 3, 1);
-        escreverUART0(94); // ^ (94)
+        setarBit(&GPIO_PORTD_ICR_R, 6, 1);
+        filaEnvios[index] = 94; // ^ (94)
+        index++;
     }
-    if (lerBit(&GPIO_PORTD_RIS_R, 3))
-    {
-        setarBit(&GPIO_PORTD_ICR_R, 3, 1);
-        escreverUART0(95); // _ (95)
-    }
+
 }
-;
+
 void trataPortE()
 {
 }
-;
+
 void trataPortF()
 {
-    if (lerBit(&GPIO_PORTF_RIS_R, 3))
+    if (lerBit(&GPIO_PORTF_RIS_R, 4))
     {
-        setarBit(&GPIO_PORTF_ICR_R, 3, 1);
-        escreverUART0(88); // X (88)
+        setarBit(&GPIO_PORTF_ICR_R, 4, 1);
+        filaEnvios[index] = 88; // X (88)
+        index++;
     }
 }
-;
+
