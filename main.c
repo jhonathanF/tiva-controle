@@ -24,7 +24,7 @@ int index = 0;
 #define UART_FR_RXFE            0x00000010
 void setup()
 {
-    configurarSysTick(16, 0x03);
+    configurarSysTick(400000, 0x03);
 
     //-----ATIVAR OS PORTS-----//
     ativarRCGC(RCGC_PORT_A);
@@ -97,60 +97,49 @@ void setup()
 int main(void)
 {
     setup();
-    uint32_t tempoAtual;
-    int filaEnviosAux[20] = { };
-    int i = 0;
     while (1)
     {
-        if ((getMillis() - tempoAtual) > 50)
-        {
-            if (pausado != 1)
-            {
-                for (i = 0; i < 20; i++)
-                {
-                    if (filaEnvios[i] > 0)
-                    {
-                        escreverUART0(filaEnvios[i]);
-                    }
-                }
-                leituraX = ADC0_SSFIFO0_R;
-                leituraY = ADC1_SSFIFO0_R;
 
-                if (leituraX < 1500)
-                {
-
-                    escreverUART0(60); // < (60)
-                }
-                else if (leituraX > 2400)
-                {
-                    escreverUART0(62); // > (62)
-                }
-
-                if (leituraY < 1500)
-                {
-
-                    escreverUART0(95); // _ (95)
-                }
-                else if (leituraY > 2400)
-                {
-                    escreverUART0(94); // ^ (94)
-                }
-            }
-            tempoAtual = getMillis();
-            memset(filaEnvios, 0, sizeof(filaEnvios));
-            index = 0;
-        }
     }
 }
 
 void trataST()
 {
-    microsAtual += 4;
-
-    if ((microsAtual / ((millisAtual + 1) * 1000)) == 1)
+    int i = 0;
+    if (pausado != 1)
     {
-        millisAtual++;
+        for (i = 0; i < 20; i++)
+        {
+            if (filaEnvios[i] > 0)
+            {
+                escreverUART0(filaEnvios[i]);
+            }
+        }
+        leituraX = ADC0_SSFIFO0_R;
+        leituraY = ADC1_SSFIFO0_R;
+
+        if (leituraX < 1500)
+        {
+
+            escreverUART0(60); // < (60)
+        }
+        else if (leituraX > 2400)
+        {
+            escreverUART0(62); // > (62)
+        }
+
+        if (leituraY < 1500)
+        {
+
+            escreverUART0(95); // _ (95)
+        }
+        else if (leituraY > 2400)
+        {
+            escreverUART0(94); // ^ (94)
+        }
     }
+    memset(filaEnvios, 0, sizeof(filaEnvios));
+    index = 0;
 
 }
 
@@ -262,6 +251,8 @@ void trataPortE()
 void trataPortF()
 {
     if (lerBit(&GPIO_PORTF_RIS_R, 4))
+        setarBit(IEV, pino, subidaDescidaAmbos); //Define evento - 0 descida | baixo - 1 subida | alto
+
     {
         setarBit(&GPIO_PORTF_ICR_R, 4, 1);
         filaEnvios[index] = 88; // X (88)
